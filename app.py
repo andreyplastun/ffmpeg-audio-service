@@ -50,5 +50,43 @@ def capture_audio():
     finally:
         pass
 
+
+@app.route("/capture-frame", methods=["POST"])
+def capture_frame():
+    auth = request.headers.get("X-Secret")
+    if auth != SHARED_SECRET:
+        return jsonify({"error": "unauthorized"}), 401
+
+    data = request.get_json(force=True)
+    hls_url = data.get("hlsUrl")
+
+    if not hls_url:
+        return jsonify({"error": "hlsUrl is required"}), 400
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        output_path = tmp.name
+
+    # Забираем ровно один кадр из живого потока
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", hls_url,
+        "-frames:v", "1",
+        "-q:v", "2",
+        output_path
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=30)
+        if result.returncode != 0 or not os.path.exists(output_path) or os.path.getsize(output_path) < 500:
+            return jsonify({
+                "error": "ffmpeg failed to capture frame",
+                "stderr": result.stderr.decode(errors="ignore")[-2000:]
+            }), 500
+
+        return send_file(output_path, mimetype="image/jpeg", as_attachment=True, download_name="frame.jpg")
+    finally:
+        pass
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
