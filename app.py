@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import os
+import traceback
 from flask import Flask, request, send_file, jsonify
 from PIL import Image, ImageDraw
 
@@ -8,29 +9,20 @@ app = Flask(__name__)
 
 SHARED_SECRET = os.environ.get("SHARED_SECRET", "change-me")
 
-# Линия-разделитель "админская сторона / клиентская сторона" для конкретных камер.
-# Координаты в ДОЛЯХ ширины/высоты кадра (0.0-1.0), а не в жёстких пикселях -
-# так линия не съезжает, даже если реальное разрешение кадра отличается от того,
-# на чём эти координаты подбирались.
-#
-# ЧЕРНОВЫЕ значения, подобраны по присланным скриншотам - ПРОВЕРИТЬ ВИЗУАЛЬНО
-# после деплоя на реальном кадре с /capture-frame, поправить при необходимости.
 CAMERA_LINES = {
-    # Назарбаева
     "8248BBEPBV1AFE1": {"x1": 0.53, "y1": 0.006, "x2": 1.0, "y2": 0.213},
-    # Толе Би (регламент-камера тоже может быть той же зоны - используем тот же did, что реально шлёт HLS)
     "44245BHPSF5CF18": {"x1": 0.68, "y1": 0.18, "x2": 1.0, "y2": 0.269},
 }
 
-LINE_COLOR = (255, 0, 0)  # красный
+LINE_COLOR = (255, 0, 0)
 LINE_WIDTH = 6
 
 
 def draw_boundary_line(image_path, did):
-    """Рисует красную линию-разделитель на кадре, если для этой камеры она задана."""
+    """Рисует красную линию-разделитель. Возвращает (drawn: bool, debug_message: str)."""
     line = CAMERA_LINES.get(did)
     if not line:
-        return  # для этой камеры оверлей не настроен - оставляем кадр как есть
+        return False, f"no line configured for did={did!r}, known dids={list(CAMERA_LINES.keys())}"
 
     img = Image.open(image_path).convert("RGB")
     w, h = img.size
@@ -43,6 +35,7 @@ def draw_boundary_line(image_path, did):
 
     draw.line([(x1, y1), (x2, y2)], fill=LINE_COLOR, width=LINE_WIDTH)
     img.save(image_path, "JPEG", quality=95)
+    return True, f"drawn ok, size={w}x{h}, line=({x1:.0f},{y1:.0f})-({x2:.0f},{y2:.0f})"
 
 
 @app.route("/health", methods=["GET"])
@@ -97,7 +90,9 @@ def capture_frame():
 
     data = request.get_json(force=True)
     hls_url = data.get("hlsUrl")
-    did = data.get("did")  # опционально: id камеры, чтобы знать, нужно ли рисовать линию
+    did = data.get("did")
+
+    print(f"[capture-frame] did received: {did!r}", flush=True)
 
     if not hls_url:
         return jsonify({"error": "hlsUrl is required"}), 400
@@ -105,7 +100,6 @@ def capture_frame():
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
         output_path = tmp.name
 
-    # Забираем ровно один кадр из живого потока
     cmd = [
         "ffmpeg", "-y",
         "-i", hls_url,
@@ -113,6 +107,8 @@ def capture_frame():
         "-q:v", "2",
         output_path
     ]
+
+    debug_header = "did-missing"
 
     try:
         result = subprocess.run(cmd, capture_output=True, timeout=30)
@@ -124,12 +120,16 @@ def capture_frame():
 
         if did:
             try:
-                draw_boundary_line(output_path, did)
+                drawn, msg = draw_boundary_line(output_path, did)
+                debug_header = f"drawn={drawn}; {msg}"
+                print(f"[capture-frame] draw_boundary_line result: {debug_header}", flush=True)
             except Exception as draw_err:
-                # если рисование сломалось - не роняем весь запрос, отдаём кадр как есть
-                pass
+                debug_header = f"EXCEPTION: {draw_err}"
+                print(f"[capture-frame] draw_boundary_line EXCEPTION: {traceback.format_exc()}", flush=True)
 
-        return send_file(output_path, mimetype="image/jpeg", as_attachment=True, download_name="frame.jpg")
+        resp = send_file(output_path, mimetype="image/jpeg", as_attachment=True, download_name="frame.jpg")
+        resp.headers["X-Line-Debug"] = debug_header[:200]
+        return resp
     finally:
         pass
 
