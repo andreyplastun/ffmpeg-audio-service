@@ -10,7 +10,7 @@ app = Flask(__name__)
 SHARED_SECRET = os.environ.get("SHARED_SECRET", "change-me")
 
 CAMERA_LINES = {
-    "8248BBEPBV1AFE1": {"x1": 0.53, "y1": 0.006, "x2": 1.0, "y2": 0.213},
+    "8248BBEPBV1AFE1": {"x1": 0.53, "y1": 0.22, "x2": 1.0, "y2": 0.242},
     "44245BHPSF5CF18": {"x1": 0.68, "y1": 0.18, "x2": 1.0, "y2": 0.269},
 }
 
