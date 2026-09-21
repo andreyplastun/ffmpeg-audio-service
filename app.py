@@ -20,7 +20,7 @@ PRESENCE_ZONES = {
     "9C05B61PAZ3F29E": {"admin": {"x1":0.0076,"x2":0.4477,"y1":0.4913,"y2":0.9987}, "excl": None},                 # Tengiz
     "7B03CEFPAZ84F7A": {"admin": {"x1":0.2455,"x2":0.9212,"y1":0.7116,"y2":0.9695}, "excl": None},                 # Kunaeva
     "44245BHPSF5CF18": {"admin": {"x1":0.7295,"x2":0.9992,"y1":0.07,  "y2":0.3742}, "excl": {"x1":0.7674,"x2":0.9788,"y1":0.3755,"y2":0.6676}},  # TolebiBar
-    "9C05B61PAZEFF4C": {"admin": {"x1":0.0,   "x2":0.4962,"y1":0.6125,"y2":0.9619}, "excl": None},                 # Baraeva
+    "7B03CEFPAZ74EC0": {"admin": {"x1":0.0,   "x2":0.4962,"y1":0.6125,"y2":0.9619}, "excl": None},                 # Baraeva
     "8248BBEPBV1AFE1": {"admin": {"x1":0.6508,"x2":0.9992,"y1":0.0,   "y2":0.4051}, "excl": {"x1":0.6636,"x2":0.9992,"y1":0.3567,"y2":0.4751}},  # Nazarbaeva
     "9C05B61PAZ17447": {"admin": {"x1":0.1333,"x2":0.5773,"y1":0.6878,"y2":0.9987}, "excl": None},                 # Karaganda
 }
